@@ -12,6 +12,12 @@ interface AdminConfig {
   sessionHours: number;
 }
 
+interface ServerConfig {
+  host: string;
+  port: number;
+  cookieSecure?: boolean;
+}
+
 interface ConfigRecord {
   id: string;
   name: string;
@@ -56,9 +62,8 @@ const rootDir = process.env.APP_ROOT
 const webDir = resolve(rootDir, isSourceRuntime ? 'dist/web' : 'web');
 const registryPath = resolve(rootDir, 'data/configs.json');
 const adminConfigPath = resolve(rootDir, 'config/admin.json');
+const serverConfigPath = resolve(rootDir, 'config/server.json');
 const templatePath = resolve(rootDir, 'bunnya.yaml');
-const port = Number.parseInt(process.env.PORT ?? '57356', 10);
-const host = process.env.HOST ?? '0.0.0.0';
 const idPattern = /^[a-z0-9][a-z0-9-]{1,47}$/;
 const writeQueues = new Map<string, Promise<void>>();
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
@@ -75,6 +80,20 @@ function safeEqual(left: string, right: string): boolean {
 
 async function readJson<T>(path: string): Promise<T> {
   return JSON.parse(await readFile(path, 'utf8')) as T;
+}
+
+const serverConfig = await readJson<ServerConfig>(serverConfigPath);
+const port = Number.parseInt(process.env.PORT ?? String(serverConfig.port), 10);
+const host = process.env.HOST ?? serverConfig.host;
+const cookieSecure = process.env.COOKIE_SECURE
+  ? process.env.COOKIE_SECURE === 'true'
+  : Boolean(serverConfig.cookieSecure);
+
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  throw new Error(`config/server.json 中的端口无效: ${serverConfig.port}`);
+}
+if (typeof host !== 'string' || !host.trim()) {
+  throw new Error('config/server.json 中的 host 不能为空');
 }
 
 async function atomicWrite(path: string, content: string): Promise<void> {
@@ -314,7 +333,7 @@ app.post('/api/auth/login', async (req, res) => {
   res.cookie('clash_admin_session', createToken(config), {
     httpOnly: true,
     sameSite: 'strict',
-    secure: process.env.COOKIE_SECURE === 'true',
+    secure: cookieSecure,
     maxAge: config.sessionHours * 60 * 60 * 1000,
     path: '/'
   });

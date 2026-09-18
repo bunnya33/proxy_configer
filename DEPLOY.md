@@ -18,6 +18,6 @@ npm start
 node server/index.js
 ```
 
-服务默认监听 `0.0.0.0:57356`。可以通过 `HOST` 和 `PORT` 环境变量修改监听地址，通过 `COOKIE_SECURE=true` 为 HTTPS 部署启用 Secure Cookie。
+服务从 `config/server.json` 读取监听地址、端口和 HTTPS Cookie 设置。默认监听 `0.0.0.0:57356`；`HOST`、`PORT` 和 `COOKIE_SECURE` 环境变量可用于临时覆盖配置文件。
 
 `config` 和 `data` 目录必须允许服务进程写入。后台修改账号或订阅配置时，变化会直接保存在这两个目录及 YAML 文件中。

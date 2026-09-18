@@ -10,7 +10,7 @@ npm run build
 npm start
 ```
 
-默认监听 `0.0.0.0:57356`，打开 `http://localhost:57356/admin` 进入后台。
+默认监听 `0.0.0.0:57356`，打开 `http://localhost:57356/admin` 进入后台。监听地址、端口和 HTTPS Cookie 设置位于 [`config/server.json`](config/server.json)。
 
 `npm run build` 会生成完整的 `dist` 部署目录。生产服务器只需上传整个 `dist` 目录，然后在其中执行 `npm start`；服务端依赖已经打入单个文件，不需要在服务器再次安装依赖。详细步骤见 [`DEPLOY.md`](DEPLOY.md)。
 
@@ -25,6 +25,7 @@ npm start
 
 ```text
 config/admin.json       后台账号与会话设置
+config/server.json      监听地址、端口和 Cookie 设置
 data/configs.json       配置名称、路由和文件索引
 data/configs/*.yaml     各订阅的独立 Clash 配置
 bunnya.yaml             默认模板
@@ -42,4 +43,4 @@ src/client              Vue + Element Plus 管理端
 npm run dev
 ```
 
-前端开发地址为 `http://localhost:5173`，API 服务仍使用 `57356` 端口。可通过 `PORT` 和 `HOST` 修改生产服务监听地址。
+前端开发地址为 `http://localhost:5173`，API 服务端口从 `config/server.json` 读取。`PORT`、`HOST` 和 `COOKIE_SECURE` 环境变量可用于临时覆盖配置文件。
