@@ -697,60 +697,78 @@ button {
 
 .rules-table-host {
   width: 100%;
+  min-height: 180px;
+  overflow: hidden;
+  border: 1px solid #dce2de;
+  border-radius: 6px;
+  background: #fff;
 }
 
-.rules-table .el-table__header th.el-table__cell {
-  height: 34px;
-  padding: 0;
+.rules-virtual-table {
+  --el-table-border-color: #edf0f2;
+  --el-table-header-bg-color: #eef1ef;
+  --el-table-row-hover-bg-color: #f7faf8;
+  font-size: 12px;
 }
 
-.rules-table .el-table__row td.el-table__cell {
-  height: 28px;
-  padding: 0;
+.rules-virtual-table .el-table-v2__header-cell {
+  color: #59655f;
+  background: #eef1ef;
+  font-size: 12px;
 }
 
-.rules-table .el-table__cell .cell {
-  min-height: 28px;
+.rules-virtual-table .el-table-v2__row-cell {
+  min-width: 0;
   padding: 0 8px;
-  line-height: 28px;
 }
 
-.rules-table .el-tag {
+.rules-virtual-table .el-tag {
   height: 20px;
   padding: 0 5px;
   line-height: 18px;
 }
 
-.rules-table .policy-pill {
+.rules-virtual-table .policy-pill {
   padding: 1px 6px;
   font-size: 11px;
 }
 
-.rules-table .el-button.is-circle {
+.rules-virtual-table .el-button.is-circle {
   width: 26px;
   height: 26px;
   min-height: 26px;
   padding: 5px;
 }
 
-.rules-table .el-select,
-.rules-table .el-input {
+.rules-virtual-table .el-select,
+.rules-virtual-table .el-input {
   width: 100%;
-  vertical-align: top;
+  height: 26px;
+  vertical-align: middle;
 }
 
-.rules-table .el-select__wrapper,
-.rules-table .el-input__wrapper {
+.rules-virtual-table .el-select__wrapper,
+.rules-virtual-table .el-input__wrapper {
+  height: 26px;
   min-height: 26px;
   padding: 0 6px;
   border-radius: 3px;
 }
 
+.rules-empty {
+  width: 100%;
+  padding-top: 60px;
+  color: #98a1ac;
+  text-align: center;
+}
+
 .editable-cell {
   width: 100%;
-  height: 28px;
+  height: 30px;
   min-width: 0;
   padding: 0;
+  display: flex;
+  align-items: center;
   overflow: hidden;
   border: 0;
   color: inherit;
@@ -773,7 +791,9 @@ button {
 
 .match-cell code {
   display: block;
+  width: 100%;
   overflow: hidden;
+  line-height: 30px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

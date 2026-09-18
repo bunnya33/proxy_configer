@@ -81,6 +81,14 @@ const filteredRules = computed(() => {
     .map((item, index) => ({ item, index }))
     .filter(({ item }) => !query || item.raw.toLowerCase().includes(query));
 });
+const ruleColumns = [
+  { key: 'number', dataKey: 'index', title: '#', width: 54 },
+  { key: 'type', dataKey: 'item.type', title: '类型', width: 160 },
+  { key: 'payload', dataKey: 'item.payload', title: '匹配内容', width: 320, minWidth: 260, flexGrow: 2 },
+  { key: 'policy', dataKey: 'item.policy', title: '策略', width: 170 },
+  { key: 'options', dataKey: 'item.options', title: '附加参数', width: 150, minWidth: 120, flexGrow: 1 },
+  { key: 'actions', dataKey: 'actions', title: '操作', width: 58, fixed: 'right', align: 'center' }
+];
 const subscriptionUrl = computed(() =>
   currentConfig.value?.subscribeUrl ? `${window.location.origin}${currentConfig.value.subscribeUrl}` : ''
 );
@@ -712,98 +720,108 @@ onBeforeUnmount(() => {
               </el-input>
               <el-button type="primary" :icon="Plus" @click="openCreateRule">添加规则</el-button>
             </div>
-            <div ref="rulesTableHost" class="rules-table-host">
-            <el-table
-              :data="filteredRules"
-              :height="ruleTableHeight"
-              row-key="index"
-              class="data-table rules-table"
-              empty-text="暂无分流规则"
-            >
-              <el-table-column label="#" width="54">
-                <template #default="{ row }"><span class="row-number">{{ row.index + 1 }}</span></template>
-              </el-table-column>
-              <el-table-column label="类型" width="160">
-                <template #default="{ row }">
-                  <el-select
-                    v-if="isEditingRule(row.index, 'type')"
-                    ref="ruleEditorRef"
-                    v-model="editingRule.value"
-                    size="small"
-                    filterable
-                    allow-create
-                    @change="commitRuleEdit"
-                    @blur="commitRuleEdit"
+            <div ref="rulesTableHost" class="rules-table-host" :style="{ height: `${ruleTableHeight}px` }">
+              <el-auto-resizer>
+                <template #default="{ height, width }">
+                  <el-table-v2
+                    :columns="ruleColumns"
+                    :data="filteredRules"
+                    :width="width"
+                    :height="height"
+                    :row-height="30"
+                    :header-height="34"
+                    :cache="10"
+                    row-key="index"
+                    class="rules-virtual-table"
                   >
-                    <el-option v-for="type in ['DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'IP-CIDR', 'IP-CIDR6', 'GEOIP', 'GEOSITE', 'PROCESS-NAME', 'RULE-SET', 'MATCH']" :key="type" :value="type" />
-                  </el-select>
-                  <button v-else type="button" class="editable-cell" @click="startRuleEdit(row.index, 'type')">
-                    <el-tag effect="plain" size="small">{{ row.item.type }}</el-tag>
-                  </button>
+                    <template #cell="{ column, rowData }">
+                      <span v-if="column.key === 'number'" class="row-number">{{ rowData.index + 1 }}</span>
+
+                      <template v-else-if="column.key === 'type'">
+                        <el-select
+                          v-if="isEditingRule(rowData.index, 'type')"
+                          ref="ruleEditorRef"
+                          v-model="editingRule.value"
+                          size="small"
+                          filterable
+                          allow-create
+                          @change="commitRuleEdit"
+                          @blur="commitRuleEdit"
+                        >
+                          <el-option v-for="type in ['DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'IP-CIDR', 'IP-CIDR6', 'GEOIP', 'GEOSITE', 'PROCESS-NAME', 'RULE-SET', 'MATCH']" :key="type" :value="type" />
+                        </el-select>
+                        <button v-else type="button" class="editable-cell" @click="startRuleEdit(rowData.index, 'type')">
+                          <el-tag effect="plain" size="small">{{ rowData.item.type }}</el-tag>
+                        </button>
+                      </template>
+
+                      <template v-else-if="column.key === 'payload'">
+                        <el-input
+                          v-if="isEditingRule(rowData.index, 'payload')"
+                          ref="ruleEditorRef"
+                          v-model="editingRule.value"
+                          size="small"
+                          autofocus
+                          @blur="commitRuleEdit"
+                          @keyup.enter="blurRuleEditor"
+                          @keyup.esc="cancelRuleEdit"
+                        />
+                        <button
+                          v-else
+                          type="button"
+                          class="editable-cell match-cell"
+                          :class="{ disabled: ['MATCH', 'FINAL'].includes(rowData.item.type) }"
+                          :title="rowData.item.payload || '全部流量'"
+                          @click="startRuleEdit(rowData.index, 'payload')"
+                        ><code class="cell-code">{{ rowData.item.payload || '全部流量' }}</code></button>
+                      </template>
+
+                      <template v-else-if="column.key === 'policy'">
+                        <el-select
+                          v-if="isEditingRule(rowData.index, 'policy')"
+                          ref="ruleEditorRef"
+                          v-model="editingRule.value"
+                          size="small"
+                          filterable
+                          allow-create
+                          @change="commitRuleEdit"
+                          @blur="commitRuleEdit"
+                        >
+                          <el-option v-for="policy in content.policyOptions" :key="policy" :value="policy" :label="policy" />
+                        </el-select>
+                        <button v-else type="button" class="editable-cell" @click="startRuleEdit(rowData.index, 'policy')">
+                          <span class="policy-pill" :class="{ direct: rowData.item.policy === 'DIRECT' }">{{ rowData.item.policy }}</span>
+                        </button>
+                      </template>
+
+                      <template v-else-if="column.key === 'options'">
+                        <el-input
+                          v-if="isEditingRule(rowData.index, 'options')"
+                          ref="ruleEditorRef"
+                          v-model="editingRule.value"
+                          size="small"
+                          autofocus
+                          @blur="commitRuleEdit"
+                          @keyup.enter="blurRuleEditor"
+                          @keyup.esc="cancelRuleEdit"
+                        />
+                        <button v-else type="button" class="editable-cell" @click="startRuleEdit(rowData.index, 'options')">{{ rowData.item.options.join(', ') || '-' }}</button>
+                      </template>
+
+                      <el-button
+                        v-else-if="column.key === 'actions'"
+                        :icon="Delete"
+                        text
+                        circle
+                        type="danger"
+                        aria-label="删除规则"
+                        @click="deleteRule(rowData.index)"
+                      />
+                    </template>
+                    <template #empty><div class="rules-empty">暂无分流规则</div></template>
+                  </el-table-v2>
                 </template>
-              </el-table-column>
-              <el-table-column label="匹配内容" min-width="280">
-                <template #default="{ row }">
-                  <el-input
-                    v-if="isEditingRule(row.index, 'payload')"
-                    ref="ruleEditorRef"
-                    v-model="editingRule.value"
-                    size="small"
-                    autofocus
-                    @blur="commitRuleEdit"
-                    @keyup.enter="blurRuleEditor"
-                    @keyup.esc="cancelRuleEdit"
-                  />
-                  <button
-                    v-else
-                    type="button"
-                    class="editable-cell match-cell"
-                    :class="{ disabled: ['MATCH', 'FINAL'].includes(row.item.type) }"
-                    :title="row.item.payload || '全部流量'"
-                    @click="startRuleEdit(row.index, 'payload')"
-                  ><code class="cell-code">{{ row.item.payload || '全部流量' }}</code></button>
-                </template>
-              </el-table-column>
-              <el-table-column label="策略" width="170">
-                <template #default="{ row }">
-                  <el-select
-                    v-if="isEditingRule(row.index, 'policy')"
-                    ref="ruleEditorRef"
-                    v-model="editingRule.value"
-                    size="small"
-                    filterable
-                    allow-create
-                    @change="commitRuleEdit"
-                    @blur="commitRuleEdit"
-                  >
-                    <el-option v-for="policy in content.policyOptions" :key="policy" :value="policy" :label="policy" />
-                  </el-select>
-                  <button v-else type="button" class="editable-cell" @click="startRuleEdit(row.index, 'policy')">
-                    <span class="policy-pill" :class="{ direct: row.item.policy === 'DIRECT' }">{{ row.item.policy }}</span>
-                  </button>
-                </template>
-              </el-table-column>
-              <el-table-column label="附加参数" min-width="130">
-                <template #default="{ row }">
-                  <el-input
-                    v-if="isEditingRule(row.index, 'options')"
-                    ref="ruleEditorRef"
-                    v-model="editingRule.value"
-                    size="small"
-                    autofocus
-                    @blur="commitRuleEdit"
-                    @keyup.enter="blurRuleEditor"
-                    @keyup.esc="cancelRuleEdit"
-                  />
-                  <button v-else type="button" class="editable-cell" @click="startRuleEdit(row.index, 'options')">{{ row.item.options.join(', ') || '-' }}</button>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="58" fixed="right">
-                <template #default="{ row }">
-                  <el-button :icon="Delete" text circle type="danger" aria-label="删除规则" @click="deleteRule(row.index)" />
-                </template>
-              </el-table-column>
-            </el-table>
+              </el-auto-resizer>
             </div>
           </el-tab-pane>
 
