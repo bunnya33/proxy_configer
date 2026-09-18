@@ -1,0 +1,29 @@
+[
+  {
+    "id": "default",
+    "name": "默认模板",
+    "description": "新建配置时使用的基础模板",
+    "file": "bunnya.yaml",
+    "isTemplate": true,
+    "createdAt": "2026-09-18T00:00:00.000Z",
+    "updatedAt": "2026-09-18T00:00:00.000Z"
+  },
+  {
+    "id": "singapore",
+    "name": "新加坡代理",
+    "description": "新加坡节点 Clash 配置",
+    "file": "data/configs/singapore.yaml",
+    "isTemplate": false,
+    "createdAt": "2026-09-18T00:00:00.000Z",
+    "updatedAt": "2026-09-18T00:00:00.000Z"
+  },
+  {
+    "id": "mainland",
+    "name": "国内代理",
+    "description": "国内节点 Clash 配置",
+    "file": "data/configs/mainland.yaml",
+    "isTemplate": false,
+    "createdAt": "2026-09-18T00:00:00.000Z",
+    "updatedAt": "2026-09-18T00:00:00.000Z"
+  }
+]
