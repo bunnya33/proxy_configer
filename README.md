@@ -12,6 +12,8 @@ npm start
 
 默认监听 `0.0.0.0:57356`，打开 `http://localhost:57356/admin` 进入后台。
 
+`npm run build` 会生成完整的 `dist` 部署目录。生产服务器只需上传整个 `dist` 目录，然后在其中执行 `npm start`；服务端依赖已经打入单个文件，不需要在服务器再次安装依赖。详细步骤见 [`DEPLOY.md`](DEPLOY.md)。
+
 - 默认账号：`admin`
 - 默认密码：`admin123`
 - 新加坡订阅：`http://localhost:57356/subscribe/singapore`

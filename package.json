@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -k \"tsx watch src/server/index.ts\" \"vite --host 0.0.0.0\"",
-    "build": "npm run typecheck && npm run build:web && npm run build:server",
+    "build": "npm run typecheck && npm run clean && npm run build:web && npm run build:server && npm run package:runtime",
+    "package": "npm run build",
+    "clean": "node scripts/clean-dist.mjs",
     "build:web": "vite build",
-    "build:server": "tsc -p tsconfig.server.json",
+    "build:server": "node scripts/build-server.mjs",
+    "package:runtime": "node scripts/package-runtime.mjs",
     "typecheck": "vue-tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
     "start": "node dist/server/index.js"
   },
@@ -24,6 +27,7 @@
     "@vitejs/plugin-vue": "^6.0.1",
     "@vue/compiler-sfc": "^3.5.43",
     "concurrently": "^9.2.1",
+    "esbuild": "^0.28.2",
     "tsx": "^4.20.6",
     "typescript": "^5.9.2",
     "vite": "^7.1.7",

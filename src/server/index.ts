@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { access, copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { dirname, resolve, sep } from 'node:path';
+import { basename, dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { parseDocument, type Document } from 'yaml';
@@ -45,8 +45,15 @@ class HttpError extends Error {
   }
 }
 
-const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const webDir = resolve(rootDir, 'dist/web');
+const moduleDir = dirname(fileURLToPath(import.meta.url));
+const moduleParentDir = resolve(moduleDir, '..');
+const isSourceRuntime = basename(moduleParentDir) === 'src';
+const rootDir = process.env.APP_ROOT
+  ? resolve(process.env.APP_ROOT)
+  : isSourceRuntime
+    ? resolve(moduleParentDir, '..')
+    : moduleParentDir;
+const webDir = resolve(rootDir, isSourceRuntime ? 'dist/web' : 'web');
 const registryPath = resolve(rootDir, 'data/configs.json');
 const adminConfigPath = resolve(rootDir, 'config/admin.json');
 const templatePath = resolve(rootDir, 'bunnya.yaml');
