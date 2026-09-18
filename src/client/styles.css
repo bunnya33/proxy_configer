@@ -1,16 +1,16 @@
 :root {
   font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #1c2521;
-  background: #f3f5f2;
+  color: #172136;
+  background: #f6f7f9;
   font-synthesis: none;
-  --el-color-primary: #28705e;
-  --el-color-primary-light-3: #5f9486;
-  --el-color-primary-light-5: #91b4aa;
-  --el-color-primary-light-7: #bed2cc;
-  --el-color-primary-light-8: #d5e2de;
-  --el-color-primary-light-9: #edf3f1;
-  --el-color-primary-dark-2: #205b4c;
-  --el-color-danger: #c95443;
+  --el-color-primary: #10b76f;
+  --el-color-primary-light-3: #52ca93;
+  --el-color-primary-light-5: #88dcb5;
+  --el-color-primary-light-7: #baebd3;
+  --el-color-primary-light-8: #d3f3e3;
+  --el-color-primary-light-9: #ecfaf3;
+  --el-color-primary-dark-2: #0b9259;
+  --el-color-danger: #e14d58;
   --el-border-radius-base: 6px;
 }
 
@@ -27,7 +27,7 @@ body,
 
 body {
   min-width: 320px;
-  background: #f3f5f2;
+  background: #f6f7f9;
 }
 
 button,
@@ -55,10 +55,10 @@ button {
   display: grid;
   place-items: center;
   border-radius: 7px;
-  background: #28705e;
+  background: #10b76f;
   color: white;
   font: 700 25px/1 Georgia, serif;
-  box-shadow: inset 0 -3px 0 rgb(0 0 0 / 12%);
+  box-shadow: 0 7px 18px rgb(16 183 111 / 18%);
 }
 
 .brand-mark.small {
@@ -134,11 +134,11 @@ button {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  color: #fff;
-  background-color: #18211d;
+  color: #172136;
+  background-color: #effaf5;
   background-image:
-    linear-gradient(rgb(255 255 255 / 4%) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(255 255 255 / 4%) 1px, transparent 1px);
+    linear-gradient(rgb(16 183 111 / 6%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(16 183 111 / 6%) 1px, transparent 1px);
   background-size: 42px 42px;
 }
 
@@ -149,7 +149,7 @@ button {
   height: 6px;
   right: 0;
   top: 28%;
-  background: #e47150;
+  background: #10b76f;
 }
 
 .status-pill {
@@ -158,7 +158,7 @@ button {
   align-items: center;
   gap: 9px;
   font-size: 13px;
-  color: #cdd7d2;
+  color: #657268;
 }
 
 .status-pill span {
@@ -176,7 +176,7 @@ button {
 }
 
 .context-copy .eyebrow {
-  color: #76b7a4;
+  color: #0b9259;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0;
@@ -193,7 +193,7 @@ button {
 .context-copy > p:last-child {
   max-width: 520px;
   margin: 0;
-  color: #bdc9c3;
+  color: #68756e;
   font-size: 17px;
   line-height: 1.8;
 }
@@ -208,16 +208,17 @@ button {
 
 .route-preview code {
   padding: 10px 12px;
-  border: 1px solid #43504a;
+  border: 1px solid #bee8d3;
   border-radius: 5px;
-  color: #dce6e1;
-  background: rgb(0 0 0 / 16%);
+  color: #237655;
+  background: #fff;
 }
 
 .manager-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 240px minmax(0, 1fr);
+  background: #f6f7f9;
 }
 
 .sidebar {
@@ -227,9 +228,9 @@ button {
   display: flex;
   flex-direction: column;
   padding: 22px 16px 16px;
-  color: #e9efec;
-  background: #18211d;
-  border-right: 1px solid #303a35;
+  color: #172136;
+  background: #fff;
+  border-right: 1px solid #e8ebef;
 }
 
 .sidebar-brand {
@@ -245,12 +246,12 @@ button {
 }
 
 .sidebar-brand strong {
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .sidebar-brand span {
   margin-top: 4px;
-  color: #8f9d96;
+  color: #9aa3af;
   font-size: 12px;
 }
 
@@ -285,20 +286,21 @@ button {
   gap: 10px;
   border: 0;
   border-radius: 6px;
-  color: #b8c4be;
+  color: #5f6877;
   background: transparent;
   text-align: left;
   cursor: pointer;
 }
 
 .config-nav-item:hover {
-  background: #232d28;
+  color: #172136;
+  background: #f3f7f5;
 }
 
 .config-nav-item.active {
   color: #fff;
-  background: #2a3832;
-  box-shadow: inset 3px 0 #55ad92;
+  background: #10b76f;
+  box-shadow: 0 8px 18px rgb(16 183 111 / 20%);
 }
 
 .config-icon {
@@ -306,12 +308,21 @@ button {
   height: 32px;
   display: grid;
   place-items: center;
-  border: 1px solid #3b4942;
+  border: 1px solid #e6e9ed;
   border-radius: 5px;
 }
 
 .config-icon svg {
   width: 16px;
+}
+
+.config-nav-item.active .config-icon {
+  border-color: rgb(255 255 255 / 35%);
+  background: rgb(255 255 255 / 12%);
+}
+
+.config-nav-item.active .config-route {
+  color: rgb(255 255 255 / 75%);
 }
 
 .config-copy,
@@ -335,7 +346,7 @@ button {
 
 .config-route {
   margin-top: 5px;
-  color: #7f8e87;
+  color: #a0a8b3;
   font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
@@ -343,7 +354,7 @@ button {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #e47150;
+  background: #ffcc29;
 }
 
 .empty-nav {
@@ -360,17 +371,17 @@ button {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 1px dashed #536159;
+  border: 1px dashed #cdd4d9;
   border-radius: 6px;
-  color: #dbe4df;
+  color: #5e6874;
   background: transparent;
   cursor: pointer;
 }
 
 .create-config-button:hover {
-  border-color: #69a995;
-  color: #fff;
-  background: #202b26;
+  border-color: #10b76f;
+  color: #0b9259;
+  background: #effaf5;
 }
 
 .create-config-button svg,
@@ -384,8 +395,8 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid #303a35;
-  color: #8e9b95;
+  border-top: 1px solid #edf0f2;
+  color: #89929e;
   font-size: 12px;
 }
 
@@ -399,7 +410,7 @@ button {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #55c795;
+  background: #10b76f;
 }
 
 .icon-plain {
@@ -409,19 +420,111 @@ button {
   place-items: center;
   border: 0;
   border-radius: 5px;
-  color: #9da9a3;
+  color: #8a94a1;
   background: transparent;
   cursor: pointer;
 }
 
 .icon-plain:hover {
-  color: #fff;
-  background: #2b3631;
+  color: #0b9259;
+  background: #effaf5;
 }
 
 .workspace {
   min-width: 0;
-  padding: 34px clamp(24px, 4vw, 58px) 52px;
+  background: #f6f7f9;
+}
+
+.topbar {
+  height: 66px;
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  border-bottom: 1px solid #e8ebef;
+  background: #fff;
+}
+
+.topbar-search {
+  width: min(300px, 34%);
+}
+
+.topbar-search .el-input__wrapper {
+  background: #f6f7f9;
+  box-shadow: none;
+}
+
+.topbar-nav {
+  align-self: stretch;
+  display: flex;
+  align-items: stretch;
+  gap: 24px;
+}
+
+.topbar-nav button {
+  position: relative;
+  border: 0;
+  color: #6f7885;
+  background: transparent;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.topbar-nav button::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: transparent;
+}
+
+.topbar-nav button:hover,
+.topbar-nav button.active {
+  color: #172136;
+}
+
+.topbar-nav button.active::after {
+  background: #10b76f;
+}
+
+.topbar-nav button:disabled {
+  color: #c2c7cd;
+  cursor: not-allowed;
+}
+
+.topbar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar-icon {
+  width: 34px;
+  height: 34px;
+  padding: 8px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  color: #66707e;
+  background: transparent;
+  cursor: pointer;
+}
+
+.topbar-icon:hover {
+  color: #0b9259;
+  background: #effaf5;
+}
+
+.topbar-icon svg {
+  width: 17px;
+}
+
+.workspace-body {
+  padding: 24px 28px 28px;
 }
 
 .workspace-header {
@@ -448,7 +551,7 @@ button {
 }
 
 .workspace-header h1 {
-  font-size: 27px;
+  font-size: 22px;
   line-height: 1.25;
   letter-spacing: 0;
 }
@@ -464,6 +567,15 @@ button {
   border-radius: 4px;
   color: #a24530;
   background: #f8e5df;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.unsaved-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #956b00;
+  background: #fff3c6;
   font-size: 11px;
   font-weight: 700;
 }
@@ -486,7 +598,7 @@ button {
   display: flex;
   align-items: center;
   gap: 14px;
-  border: 1px solid #d8dfdb;
+  border: 1px solid #e6e9ed;
   border-radius: 7px;
   background: #fff;
 }
@@ -507,7 +619,7 @@ button {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: #286754;
+  color: #0a8c55;
   font-size: 13px;
 }
 
@@ -520,7 +632,11 @@ button {
 
 .content-panel {
   min-height: 540px;
-  border-top: 1px solid #d9dfdc;
+  padding: 0 16px 16px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 4px 18px rgb(23 33 54 / 3%);
 }
 
 .manager-tabs > .el-tabs__header {
@@ -579,6 +695,89 @@ button {
   height: 54px;
 }
 
+.rules-table-host {
+  width: 100%;
+}
+
+.rules-table .el-table__header th.el-table__cell {
+  height: 34px;
+  padding: 0;
+}
+
+.rules-table .el-table__row td.el-table__cell {
+  height: 28px;
+  padding: 0;
+}
+
+.rules-table .el-table__cell .cell {
+  min-height: 28px;
+  padding: 0 8px;
+  line-height: 28px;
+}
+
+.rules-table .el-tag {
+  height: 20px;
+  padding: 0 5px;
+  line-height: 18px;
+}
+
+.rules-table .policy-pill {
+  padding: 1px 6px;
+  font-size: 11px;
+}
+
+.rules-table .el-button.is-circle {
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 5px;
+}
+
+.rules-table .el-select,
+.rules-table .el-input {
+  width: 100%;
+  vertical-align: top;
+}
+
+.rules-table .el-select__wrapper,
+.rules-table .el-input__wrapper {
+  min-height: 26px;
+  padding: 0 6px;
+  border-radius: 3px;
+}
+
+.editable-cell {
+  width: 100%;
+  height: 28px;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+}
+
+.editable-cell:hover {
+  color: #087f4d;
+  background: #effaf5;
+}
+
+.editable-cell.disabled {
+  color: #98a1ac;
+  cursor: default;
+}
+
+.match-cell code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .cell-code {
   color: #46534d;
   font-size: 12px;
@@ -612,15 +811,6 @@ button {
 .policy-pill.direct {
   color: #276955;
   background: #dcebe5;
-}
-
-.pagination-row {
-  padding-top: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: #77817c;
-  font-size: 13px;
 }
 
 .raw-toolbar > div:first-child strong,
@@ -735,7 +925,20 @@ button {
   }
 
   .workspace {
-    padding: 24px 18px 44px;
+    padding: 0;
+  }
+
+  .topbar {
+    padding: 0 16px;
+    gap: 14px;
+  }
+
+  .topbar-search {
+    display: none;
+  }
+
+  .workspace-body {
+    padding: 22px 18px 30px;
   }
 }
 
@@ -769,18 +972,13 @@ button {
   }
 
   .panel-toolbar,
-  .raw-toolbar,
-  .pagination-row {
+  .raw-toolbar {
     align-items: stretch;
     flex-direction: column;
   }
 
   .table-search {
     width: 100%;
-  }
-
-  .pagination-row .el-pagination {
-    overflow-x: auto;
   }
 
   .form-grid {

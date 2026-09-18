@@ -421,6 +421,34 @@ app.get('/api/configs/:id/content', async (req, res) => {
   });
 });
 
+app.put('/api/configs/:id/content', async (req, res) => {
+  if (!Array.isArray(req.body?.proxies) || !Array.isArray(req.body?.rules) || !Array.isArray(req.body?.proxyGroups)) {
+    throw new HttpError(400, 'proxies、rules 和 proxyGroups 必须是数组');
+  }
+  const proxies: Record<string, unknown>[] = (req.body.proxies as unknown[]).map(validateProxy);
+  const proxyNames = proxies.map((proxy) => proxy.name as string);
+  if (new Set(proxyNames).size !== proxyNames.length) throw new HttpError(409, '代理名称不能重复');
+  const rules = req.body.rules.map((rule: unknown) => {
+    if (!rule || typeof rule !== 'object' || Array.isArray(rule)) throw new HttpError(400, '规则格式无效');
+    return normalizeRule(rule as RuleInput);
+  });
+  const proxyGroups = jsonClone(req.body.proxyGroups as Record<string, unknown>[]);
+  if (proxyGroups.some((group) => !group || typeof group !== 'object' || Array.isArray(group))) {
+    throw new HttpError(400, '代理组格式无效');
+  }
+  const result = await editDocument(req.params.id, (doc) => {
+    doc.set('proxies', proxies);
+    doc.set('proxy-groups', proxyGroups);
+    doc.set('rules', rules);
+  });
+  res.json({
+    proxies: result.proxies ?? [],
+    rules: (result.rules ?? []).map(splitRule),
+    proxyGroups: result['proxy-groups'] ?? [],
+    policyOptions: policyOptions(result)
+  });
+});
+
 app.get('/api/configs/:id/raw', async (req, res) => {
   const record = await findConfig(req.params.id);
   res.type('text/yaml').send(await readFile(resolveConfigPath(record.file), 'utf8'));
@@ -518,20 +546,6 @@ app.delete('/api/configs/:id/rules/:index', async (req, res) => {
   await editDocument(req.params.id, (doc, data) => {
     const rules = requireArray(data.rules, 'rules');
     rules.splice(requireIndex(req.params.index, rules.length), 1);
-    doc.set('rules', rules);
-  });
-  res.status(204).end();
-});
-
-app.post('/api/configs/:id/rules/:index/move', async (req, res) => {
-  const direction = req.body?.direction === 'up' ? -1 : req.body?.direction === 'down' ? 1 : 0;
-  if (!direction) throw new HttpError(400, '移动方向无效');
-  await editDocument(req.params.id, (doc, data) => {
-    const rules = requireArray(data.rules, 'rules');
-    const index = requireIndex(req.params.index, rules.length);
-    const target = index + direction;
-    if (target < 0 || target >= rules.length) return;
-    [rules[index], rules[target]] = [rules[target], rules[index]];
     doc.set('rules', rules);
   });
   res.status(204).end();

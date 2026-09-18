@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
-  ArrowDown,
-  ArrowUp,
   Check,
   CopyDocument,
   Delete,
@@ -30,11 +28,13 @@ const activeTab = ref('proxies');
 const sidebarQuery = ref('');
 const proxyQuery = ref('');
 const ruleQuery = ref('');
-const rulePage = ref(1);
-const rulePageSize = ref(20);
+const rulesTableHost = ref<HTMLElement>();
+const ruleTableHeight = ref(320);
 const rawYaml = ref('');
 const rawLoading = ref(false);
 const rawSaving = ref(false);
+const hasUnsavedChanges = ref(false);
+const savingChanges = ref(false);
 
 const configDialog = reactive({ visible: false, editing: false, saving: false });
 const configForm = reactive({ id: '', name: '', description: '' });
@@ -55,8 +55,12 @@ const proxyForm = reactive({
   wsHost: '',
   extra: '{}'
 });
-const ruleDialog = reactive({ visible: false, index: -1, saving: false });
+const ruleDialog = reactive({ visible: false, saving: false });
 const ruleForm = reactive({ type: 'DOMAIN-SUFFIX', payload: '', policy: 'DIRECT', options: '' });
+type RuleField = 'type' | 'payload' | 'policy' | 'options';
+type FocusableEditor = { focus?: () => void };
+const ruleEditorRef = ref<FocusableEditor | FocusableEditor[]>();
+const editingRule = reactive({ index: -1, field: '' as RuleField | '', value: '', saving: false });
 
 const currentConfig = computed(() => configs.value.find((item) => item.id === currentId.value));
 const filteredConfigs = computed(() => {
@@ -77,16 +81,9 @@ const filteredRules = computed(() => {
     .map((item, index) => ({ item, index }))
     .filter(({ item }) => !query || item.raw.toLowerCase().includes(query));
 });
-const pagedRules = computed(() => {
-  const start = (rulePage.value - 1) * rulePageSize.value;
-  return filteredRules.value.slice(start, start + rulePageSize.value);
-});
 const subscriptionUrl = computed(() =>
   currentConfig.value?.subscribeUrl ? `${window.location.origin}${currentConfig.value.subscribeUrl}` : ''
 );
-
-watch(ruleQuery, () => (rulePage.value = 1));
-watch(rulePageSize, () => (rulePage.value = 1));
 
 function errorMessage(error: unknown) {
   ElMessage.error(error instanceof Error ? error.message : '操作失败');
@@ -105,8 +102,9 @@ async function loadContent() {
   contentLoading.value = true;
   try {
     content.value = await api<ConfigContent>(`/api/configs/${currentId.value}/content`);
-    rulePage.value = 1;
+    hasUnsavedChanges.value = false;
     if (activeTab.value === 'raw') await loadRaw();
+    if (activeTab.value === 'rules') updateRulesTableHeight();
   } catch (error) {
     errorMessage(error);
   } finally {
@@ -114,10 +112,30 @@ async function loadContent() {
   }
 }
 
+async function confirmDiscardChanges() {
+  if (!hasUnsavedChanges.value) return true;
+  try {
+    await ElMessageBox.confirm('当前有尚未保存的代理或规则修改，确定放弃这些修改吗？', '未保存的修改', {
+      confirmButtonText: '放弃修改',
+      cancelButtonText: '继续编辑',
+      type: 'warning'
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function selectConfig(id: string) {
   if (id === currentId.value) return;
+  if (!(await confirmDiscardChanges())) return;
   currentId.value = id;
   rawYaml.value = '';
+  await loadContent();
+}
+
+async function refreshContent() {
+  if (!(await confirmDiscardChanges())) return;
   await loadContent();
 }
 
@@ -226,18 +244,22 @@ function openCreateProxy() {
   Object.assign(proxyDialog, { visible: true, index: -1 });
 }
 
+function clonePlain<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
 function openEditProxy(index: number) {
-  const source = structuredClone(content.value.proxies[index]);
+  const source = clonePlain(content.value.proxies[index]);
   const wsOpts = (source['ws-opts'] ?? {}) as Record<string, unknown>;
   const headers = (wsOpts.headers ?? {}) as Record<string, unknown>;
-  const extra = structuredClone(source);
+  const extra = clonePlain(source);
   const known = ['name', 'type', 'server', 'port', 'uuid', 'password', 'cipher', 'alterId', 'tls', 'skip-cert-verify', 'network'];
   known.forEach((key) => delete extra[key]);
   delete extra['ws-opts'];
-  const remainingWs = structuredClone(wsOpts);
+  const remainingWs = clonePlain(wsOpts);
   delete remainingWs.path;
   if (remainingWs.headers && typeof remainingWs.headers === 'object') {
-    const remainingHeaders = structuredClone(remainingWs.headers as Record<string, unknown>);
+    const remainingHeaders = clonePlain(remainingWs.headers as Record<string, unknown>);
     delete remainingHeaders.Host;
     if (Object.keys(remainingHeaders).length) remainingWs.headers = remainingHeaders;
     else delete remainingWs.headers;
@@ -302,7 +324,7 @@ function buildProxy(): Record<string, unknown> {
   return proxy;
 }
 
-async function saveProxy() {
+function saveProxy() {
   if (!proxyForm.name.trim() || !proxyForm.type || !proxyForm.server.trim() || !proxyForm.port) {
     ElMessage.warning('请填写名称、类型、服务器和端口');
     return;
@@ -310,14 +332,25 @@ async function saveProxy() {
   proxyDialog.saving = true;
   try {
     const proxy = buildProxy();
-    const path =
-      proxyDialog.index < 0
-        ? `/api/configs/${currentId.value}/proxies`
-        : `/api/configs/${currentId.value}/proxies/${proxyDialog.index}`;
-    await api(path, { method: proxyDialog.index < 0 ? 'POST' : 'PUT', body: JSON.stringify(proxy) });
-    await loadContent();
+    if (content.value.proxies.some((item, index) => index !== proxyDialog.index && item.name === proxy.name)) {
+      throw new Error('代理名称已存在');
+    }
+    if (proxyDialog.index < 0) {
+      content.value.proxies.push(proxy);
+    } else {
+      const previousName = content.value.proxies[proxyDialog.index]?.name;
+      content.value.proxies.splice(proxyDialog.index, 1, proxy);
+      if (typeof previousName === 'string' && previousName !== proxy.name) {
+        content.value.proxyGroups.forEach((group) => {
+          if (Array.isArray(group.proxies)) {
+            group.proxies = group.proxies.map((name) => (name === previousName ? proxy.name : name));
+          }
+        });
+      }
+    }
+    hasUnsavedChanges.value = true;
     proxyDialog.visible = false;
-    ElMessage.success(proxyDialog.index < 0 ? '代理已添加' : '代理已更新');
+    ElMessage.success(proxyDialog.index < 0 ? '代理已加入待保存修改' : '代理修改已暂存');
   } catch (error) {
     errorMessage(error);
   } finally {
@@ -332,9 +365,12 @@ async function deleteProxy(index: number, name: unknown) {
       confirmButtonText: '确认删除',
       cancelButtonText: '取消'
     });
-    await api(`/api/configs/${currentId.value}/proxies/${index}`, { method: 'DELETE' });
-    await loadContent();
-    ElMessage.success('代理已删除');
+    content.value.proxies.splice(index, 1);
+    content.value.proxyGroups.forEach((group) => {
+      if (Array.isArray(group.proxies)) group.proxies = group.proxies.filter((item) => item !== name);
+    });
+    hasUnsavedChanges.value = true;
+    ElMessage.success('代理删除已暂存');
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') errorMessage(error);
   }
@@ -342,35 +378,31 @@ async function deleteProxy(index: number, name: unknown) {
 
 function openCreateRule() {
   Object.assign(ruleForm, { type: 'DOMAIN-SUFFIX', payload: '', policy: content.value.policyOptions[0] ?? 'DIRECT', options: '' });
-  Object.assign(ruleDialog, { visible: true, index: -1 });
+  ruleDialog.visible = true;
 }
 
-function openEditRule(index: number) {
-  const rule = content.value.rules[index];
-  Object.assign(ruleForm, {
-    type: rule.type,
-    payload: rule.payload,
-    policy: rule.policy,
-    options: rule.options.join(',')
-  });
-  Object.assign(ruleDialog, { visible: true, index });
+function createRuleRecord(input: { type: string; payload: string; policy: string; options: string }): RuleRecord {
+  const type = input.type.trim().toUpperCase();
+  const payload = input.payload.trim();
+  const policy = input.policy.trim();
+  const options = input.options.split(',').map((item) => item.trim()).filter(Boolean);
+  const raw = ['MATCH', 'FINAL'].includes(type)
+    ? [type, policy, ...options].join(',')
+    : [type, payload, policy, ...options].join(',');
+  return { raw, type, payload: ['MATCH', 'FINAL'].includes(type) ? '' : payload, policy, options };
 }
 
-async function saveRule() {
-  if (!ruleForm.type || !ruleForm.policy || (!['MATCH', 'FINAL'].includes(ruleForm.type) && !ruleForm.payload.trim())) {
+function saveRule() {
+  if (!ruleForm.type || !ruleForm.policy || (!['MATCH', 'FINAL'].includes(ruleForm.type.toUpperCase()) && !ruleForm.payload.trim())) {
     ElMessage.warning('请完整填写规则');
     return;
   }
   ruleDialog.saving = true;
   try {
-    const path =
-      ruleDialog.index < 0
-        ? `/api/configs/${currentId.value}/rules`
-        : `/api/configs/${currentId.value}/rules/${ruleDialog.index}`;
-    await api(path, { method: ruleDialog.index < 0 ? 'POST' : 'PUT', body: JSON.stringify(ruleForm) });
-    await loadContent();
+    content.value.rules.push(createRuleRecord(ruleForm));
+    hasUnsavedChanges.value = true;
     ruleDialog.visible = false;
-    ElMessage.success(ruleDialog.index < 0 ? '规则已添加' : '规则已更新');
+    ElMessage.success('规则已加入待保存修改');
   } catch (error) {
     errorMessage(error);
   } finally {
@@ -379,26 +411,100 @@ async function saveRule() {
 }
 
 async function deleteRule(index: number) {
+  content.value.rules.splice(index, 1);
+  hasUnsavedChanges.value = true;
+  ElMessage.success('规则删除已暂存');
+}
+
+function isEditingRule(index: number, field: RuleField) {
+  return editingRule.index === index && editingRule.field === field;
+}
+
+function startRuleEdit(index: number, field: RuleField) {
+  if (editingRule.saving) return;
+  const rule = content.value.rules[index];
+  if (!rule || (field === 'payload' && ['MATCH', 'FINAL'].includes(rule.type))) return;
+  editingRule.index = index;
+  editingRule.field = field;
+  editingRule.value = field === 'options' ? rule.options.join(',') : rule[field];
+  void nextTick(() => {
+    const editor = Array.isArray(ruleEditorRef.value) ? ruleEditorRef.value.at(-1) : ruleEditorRef.value;
+    editor?.focus?.();
+  });
+}
+
+function cancelRuleEdit() {
+  if (editingRule.saving) return;
+  editingRule.index = -1;
+  editingRule.field = '';
+  editingRule.value = '';
+}
+
+function blurRuleEditor(event: KeyboardEvent) {
+  (event.target as HTMLElement | null)?.blur();
+}
+
+function commitRuleEdit() {
+  if (editingRule.saving || editingRule.index < 0 || !editingRule.field) return;
+  const index = editingRule.index;
+  const field = editingRule.field;
+  const value = editingRule.value.trim();
+  const original = content.value.rules[index];
+  if (!original) return cancelRuleEdit();
+
+  const update = {
+    type: original.type,
+    payload: original.payload,
+    policy: original.policy,
+    options: original.options.join(',')
+  };
+  update[field] = value;
+  if (!update.type || !update.policy || (!['MATCH', 'FINAL'].includes(update.type.toUpperCase()) && !update.payload)) {
+    ElMessage.warning('规则类型、匹配内容和策略不能为空');
+    return cancelRuleEdit();
+  }
+  const originalValue = field === 'options' ? original.options.join(',') : original[field];
+  if (value === originalValue) return cancelRuleEdit();
+
+  editingRule.saving = true;
   try {
-    await api(`/api/configs/${currentId.value}/rules/${index}`, { method: 'DELETE' });
-    await loadContent();
-    const maxPage = Math.max(1, Math.ceil(filteredRules.value.length / rulePageSize.value));
-    rulePage.value = Math.min(rulePage.value, maxPage);
-    ElMessage.success('规则已删除');
+    content.value.rules.splice(index, 1, createRuleRecord(update));
+    hasUnsavedChanges.value = true;
   } catch (error) {
     errorMessage(error);
+  } finally {
+    editingRule.saving = false;
+    cancelRuleEdit();
   }
 }
 
-async function moveRule(index: number, direction: 'up' | 'down') {
+function updateRulesTableHeight() {
+  void nextTick(() => {
+    const top = rulesTableHost.value?.getBoundingClientRect().top;
+    if (top === undefined) return;
+    ruleTableHeight.value = Math.max(180, Math.floor(window.innerHeight - top - 24));
+  });
+}
+
+async function saveAllChanges() {
+  if (!hasUnsavedChanges.value || savingChanges.value) return;
+  savingChanges.value = true;
   try {
-    await api(`/api/configs/${currentId.value}/rules/${index}/move`, {
-      method: 'POST',
-      body: JSON.stringify({ direction })
+    content.value = await api<ConfigContent>(`/api/configs/${currentId.value}/content`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        proxies: content.value.proxies,
+        proxyGroups: content.value.proxyGroups,
+        rules: content.value.rules.map(({ type, payload, policy, options }) => ({ type, payload, policy, options }))
+      })
     });
-    await loadContent();
+    hasUnsavedChanges.value = false;
+    rawYaml.value = '';
+    ElMessage.success('所有修改已保存');
   } catch (error) {
     errorMessage(error);
+  } finally {
+    savingChanges.value = false;
   }
 }
 
@@ -434,9 +540,11 @@ async function saveRaw() {
 
 async function handleTabChange(name: string | number) {
   if (name === 'raw') await loadRaw();
+  if (name === 'rules') updateRulesTableHeight();
 }
 
 async function logout() {
+  if (!(await confirmDiscardChanges())) return;
   try {
     await api('/api/auth/logout', { method: 'POST' });
   } finally {
@@ -444,7 +552,15 @@ async function logout() {
   }
 }
 
+function handleBeforeUnload(event: BeforeUnloadEvent) {
+  if (!hasUnsavedChanges.value) return;
+  event.preventDefault();
+  event.returnValue = '';
+}
+
 onMounted(async () => {
+  window.addEventListener('resize', updateRulesTableHeight);
+  window.addEventListener('beforeunload', handleBeforeUnload);
   try {
     await loadConfigs('singapore');
     await loadContent();
@@ -454,6 +570,10 @@ onMounted(async () => {
     initialLoading.value = false;
   }
 });
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateRulesTableHeight);
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+});
 </script>
 
 <template>
@@ -462,11 +582,6 @@ onMounted(async () => {
       <div class="sidebar-brand">
         <div class="brand-mark small">C</div>
         <div><strong>Clash 配置中心</strong><span>订阅管理后台</span></div>
-      </div>
-      <div class="sidebar-search">
-        <el-input v-model="sidebarQuery" clearable placeholder="查找配置">
-          <template #prefix><el-icon><Search /></el-icon></template>
-        </el-input>
       </div>
       <nav class="config-nav">
         <button
@@ -498,19 +613,44 @@ onMounted(async () => {
     </aside>
 
     <main class="workspace">
+      <div class="topbar">
+        <el-input v-model="sidebarQuery" clearable placeholder="搜索配置..." class="topbar-search">
+          <template #prefix><el-icon><Search /></el-icon></template>
+        </el-input>
+        <nav class="topbar-nav" aria-label="配置视图">
+          <button type="button" :class="{ active: activeTab === 'proxies' }" @click="activeTab = 'proxies'">代理节点</button>
+          <button type="button" :class="{ active: activeTab === 'rules' }" @click="activeTab = 'rules'; updateRulesTableHeight()">分流规则</button>
+          <button type="button" :class="{ active: activeTab === 'raw' }" :disabled="hasUnsavedChanges" @click="activeTab = 'raw'; loadRaw()">YAML</button>
+        </nav>
+        <div class="topbar-actions">
+          <el-button
+            type="primary"
+            :icon="Check"
+            :loading="savingChanges"
+            :plain="!hasUnsavedChanges"
+            @click="saveAllChanges"
+          >保存修改</el-button>
+          <el-tooltip content="刷新配置" placement="bottom">
+            <button type="button" class="topbar-icon" aria-label="刷新配置" @click="refreshContent"><Refresh /></button>
+          </el-tooltip>
+          <el-tooltip content="退出登录" placement="bottom">
+            <button type="button" class="topbar-icon" aria-label="退出登录" @click="logout"><SwitchButton /></button>
+          </el-tooltip>
+        </div>
+      </div>
+
+      <div class="workspace-body">
       <header class="workspace-header">
         <div class="mobile-brand"><div class="brand-mark small">C</div><strong>配置中心</strong></div>
         <div>
           <div class="title-line">
             <h1>{{ currentConfig?.name || '配置' }}</h1>
             <span v-if="currentConfig?.isTemplate" class="template-badge">默认模板</span>
+            <span v-if="hasUnsavedChanges" class="unsaved-badge">有未保存修改</span>
           </div>
           <p>{{ currentConfig?.description || '未填写配置说明' }}</p>
         </div>
         <div class="header-actions">
-          <el-tooltip content="刷新" placement="bottom">
-            <el-button :icon="Refresh" circle aria-label="刷新" @click="loadContent" />
-          </el-tooltip>
           <el-button :icon="Edit" @click="openEditConfig">编辑资料</el-button>
           <el-button v-if="!currentConfig?.isTemplate" :icon="Delete" type="danger" plain @click="deleteConfig">删除</el-button>
         </div>
@@ -572,47 +712,102 @@ onMounted(async () => {
               </el-input>
               <el-button type="primary" :icon="Plus" @click="openCreateRule">添加规则</el-button>
             </div>
-            <el-table :data="pagedRules" row-key="index" class="data-table" empty-text="暂无分流规则">
-              <el-table-column label="#" width="64">
+            <div ref="rulesTableHost" class="rules-table-host">
+            <el-table
+              :data="filteredRules"
+              :height="ruleTableHeight"
+              row-key="index"
+              class="data-table rules-table"
+              empty-text="暂无分流规则"
+            >
+              <el-table-column label="#" width="54">
                 <template #default="{ row }"><span class="row-number">{{ row.index + 1 }}</span></template>
               </el-table-column>
-              <el-table-column label="类型" width="150">
-                <template #default="{ row }"><el-tag effect="plain" size="small">{{ row.item.type }}</el-tag></template>
+              <el-table-column label="类型" width="160">
+                <template #default="{ row }">
+                  <el-select
+                    v-if="isEditingRule(row.index, 'type')"
+                    ref="ruleEditorRef"
+                    v-model="editingRule.value"
+                    size="small"
+                    filterable
+                    allow-create
+                    @change="commitRuleEdit"
+                    @blur="commitRuleEdit"
+                  >
+                    <el-option v-for="type in ['DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'IP-CIDR', 'IP-CIDR6', 'GEOIP', 'GEOSITE', 'PROCESS-NAME', 'RULE-SET', 'MATCH']" :key="type" :value="type" />
+                  </el-select>
+                  <button v-else type="button" class="editable-cell" @click="startRuleEdit(row.index, 'type')">
+                    <el-tag effect="plain" size="small">{{ row.item.type }}</el-tag>
+                  </button>
+                </template>
               </el-table-column>
-              <el-table-column label="匹配内容" min-width="260" show-overflow-tooltip>
-                <template #default="{ row }"><code class="cell-code">{{ row.item.payload || '全部流量' }}</code></template>
+              <el-table-column label="匹配内容" min-width="280">
+                <template #default="{ row }">
+                  <el-input
+                    v-if="isEditingRule(row.index, 'payload')"
+                    ref="ruleEditorRef"
+                    v-model="editingRule.value"
+                    size="small"
+                    autofocus
+                    @blur="commitRuleEdit"
+                    @keyup.enter="blurRuleEditor"
+                    @keyup.esc="cancelRuleEdit"
+                  />
+                  <button
+                    v-else
+                    type="button"
+                    class="editable-cell match-cell"
+                    :class="{ disabled: ['MATCH', 'FINAL'].includes(row.item.type) }"
+                    :title="row.item.payload || '全部流量'"
+                    @click="startRuleEdit(row.index, 'payload')"
+                  ><code class="cell-code">{{ row.item.payload || '全部流量' }}</code></button>
+                </template>
               </el-table-column>
               <el-table-column label="策略" width="170">
                 <template #default="{ row }">
-                  <span class="policy-pill" :class="{ direct: row.item.policy === 'DIRECT' }">{{ row.item.policy }}</span>
+                  <el-select
+                    v-if="isEditingRule(row.index, 'policy')"
+                    ref="ruleEditorRef"
+                    v-model="editingRule.value"
+                    size="small"
+                    filterable
+                    allow-create
+                    @change="commitRuleEdit"
+                    @blur="commitRuleEdit"
+                  >
+                    <el-option v-for="policy in content.policyOptions" :key="policy" :value="policy" :label="policy" />
+                  </el-select>
+                  <button v-else type="button" class="editable-cell" @click="startRuleEdit(row.index, 'policy')">
+                    <span class="policy-pill" :class="{ direct: row.item.policy === 'DIRECT' }">{{ row.item.policy }}</span>
+                  </button>
                 </template>
               </el-table-column>
-              <el-table-column label="附加参数" width="130">
-                <template #default="{ row }">{{ row.item.options.join(', ') || '-' }}</template>
-              </el-table-column>
-              <el-table-column label="操作" width="180" fixed="right">
+              <el-table-column label="附加参数" min-width="130">
                 <template #default="{ row }">
-                  <el-tooltip content="上移" placement="top"><el-button :icon="ArrowUp" text circle :disabled="Boolean(ruleQuery) || row.index === 0" @click="moveRule(row.index, 'up')" /></el-tooltip>
-                  <el-tooltip content="下移" placement="top"><el-button :icon="ArrowDown" text circle :disabled="Boolean(ruleQuery) || row.index === content.rules.length - 1" @click="moveRule(row.index, 'down')" /></el-tooltip>
-                  <el-button :icon="Edit" text circle aria-label="编辑规则" @click="openEditRule(row.index)" />
+                  <el-input
+                    v-if="isEditingRule(row.index, 'options')"
+                    ref="ruleEditorRef"
+                    v-model="editingRule.value"
+                    size="small"
+                    autofocus
+                    @blur="commitRuleEdit"
+                    @keyup.enter="blurRuleEditor"
+                    @keyup.esc="cancelRuleEdit"
+                  />
+                  <button v-else type="button" class="editable-cell" @click="startRuleEdit(row.index, 'options')">{{ row.item.options.join(', ') || '-' }}</button>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="58" fixed="right">
+                <template #default="{ row }">
                   <el-button :icon="Delete" text circle type="danger" aria-label="删除规则" @click="deleteRule(row.index)" />
                 </template>
               </el-table-column>
             </el-table>
-            <div class="pagination-row">
-              <span>共 {{ filteredRules.length }} 条</span>
-              <el-pagination
-                v-model:current-page="rulePage"
-                v-model:page-size="rulePageSize"
-                :page-sizes="[20, 50, 100]"
-                :total="filteredRules.length"
-                layout="sizes, prev, pager, next"
-                background
-              />
             </div>
           </el-tab-pane>
 
-          <el-tab-pane name="raw">
+          <el-tab-pane name="raw" :disabled="hasUnsavedChanges">
             <template #label><span>原始 YAML</span></template>
             <div class="raw-toolbar">
               <div><strong>完整配置</strong><span>保存前会校验 YAML 语法和必要字段。</span></div>
@@ -629,6 +824,7 @@ onMounted(async () => {
           </el-tab-pane>
         </el-tabs>
       </section>
+      </div>
     </main>
 
     <el-dialog v-model="configDialog.visible" :title="configDialog.editing ? '编辑配置资料' : '新建配置'" width="500px">
@@ -669,7 +865,7 @@ onMounted(async () => {
       <template #footer><el-button @click="proxyDialog.visible = false">取消</el-button><el-button type="primary" :loading="proxyDialog.saving" @click="saveProxy">保存</el-button></template>
     </el-dialog>
 
-    <el-dialog v-model="ruleDialog.visible" :title="ruleDialog.index < 0 ? '添加规则' : '编辑规则'" width="560px">
+    <el-dialog v-model="ruleDialog.visible" title="添加规则" width="560px">
       <el-form label-position="top">
         <el-form-item label="规则类型" required>
           <el-select v-model="ruleForm.type" filterable allow-create>
