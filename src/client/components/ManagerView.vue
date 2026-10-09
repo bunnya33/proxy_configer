@@ -847,7 +847,7 @@ onBeforeUnmount(() => {
 
     <el-dialog v-model="configDialog.visible" :title="configDialog.editing ? '编辑配置资料' : '新建配置'" width="500px">
       <el-form label-position="top">
-        <el-form-item label="配置名称" required><el-input v-model="configForm.name" placeholder="例如：日本代理" /></el-form-item>
+        <el-form-item label="配置名称（订阅显示名）" required><el-input v-model="configForm.name" placeholder="例如：轻云" /></el-form-item>
         <el-form-item v-if="!configDialog.editing" label="订阅路由标识" required>
           <el-input v-model="configForm.id" placeholder="例如：japan"><template #prepend>/subscribe/</template></el-input>
         </el-form-item>

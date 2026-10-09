@@ -146,3 +146,41 @@ test('port validation rejects malformed values and occupied ports, preserving ot
   assert.equal(updated.host, '0.0.0.0');
   assert.equal(updated.cookieSecure, false);
 });
+
+test('subscription responses use editable Unicode names without a YAML suffix and preserve downloaded content', async (t) => {
+  const { directory, cli } = await fixture(t);
+  const initialized = cli('init');
+  assert.equal(initialized.status, 0, initialized.stderr);
+  const base = await launch(t, directory);
+  const signedIn = await login(base, credentials(initialized.stdout));
+  const cookie = signedIn.headers.get('set-cookie').split(';')[0];
+  const source = await readFile(resolve(directory, 'data/configs/singapore.yaml'), 'utf8');
+  for (const [name, filename] of [
+    ['轻云', '轻云'],
+    ['Light Cloud', 'Light Cloud'],
+    ["轻云 ☁️ (香港)'", "轻云 ☁️ (香港)'"],
+    ['轻云 / "香港"\r\n', '轻云 _ _香港_']
+  ]) {
+    const saved = await fetch(`${base}/api/configs/singapore`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ name, description: '订阅显示名称测试' })
+    });
+    assert.equal(saved.status, 200);
+    const response = await fetch(`${base}/subscribe/singapore`);
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), source);
+    const disposition = response.headers.get('content-disposition');
+    const encodedFilename = disposition.match(/filename\*=UTF-8''([^;]+)/)[1];
+    assert.equal(decodeURIComponent(encodedFilename), filename);
+    assert.equal(decodeURIComponent(disposition.match(/filename="([^"]+)"/)[1]), filename);
+    assert.equal(disposition.endsWith('.yaml'), false);
+    const title = response.headers.get('profile-title');
+    assert.equal(title.startsWith('base64:'), true);
+    assert.equal(Buffer.from(title.slice(7), 'base64').toString('utf8'), name.trim());
+    const head = await fetch(`${base}/subscribe/singapore`, { method: 'HEAD' });
+    assert.equal(head.headers.get('content-disposition'), disposition);
+  }
+  assert.equal(await readFile(resolve(directory, 'data/configs/singapore.yaml'), 'utf8'), source);
+  assert.equal((await fetch(`${base}/subscribe/default`)).status, 404);
+});

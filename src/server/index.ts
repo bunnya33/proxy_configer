@@ -341,9 +341,16 @@ app.get('/subscribe/:id', async (req, res) => {
   const record = await findConfig(req.params.id);
   if (record.isTemplate) throw new HttpError(404, '订阅不存在');
   const source = await readFile(resolveConfigPath(record.file));
+  const title = record.name.replace(/[\u0000-\u001f\u007f]/g, ' ').trim() || record.id;
+  const filename = title.replace(/[\\/:*?"<>|]/g, '_');
+  const encodedFilename = encodeURIComponent(filename).replace(/['()*]/g, (character) =>
+    `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+  );
   res.setHeader('Content-Type', 'text/yaml; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
-  res.setHeader('Content-Disposition', `inline; filename="${record.id}.yaml"`);
+  // Clash clients can use the filename verbatim as their profile display name.
+  res.setHeader('Content-Disposition', `inline; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
+  res.setHeader('Profile-Title', `base64:${Buffer.from(title, 'utf8').toString('base64')}`);
   res.send(source);
 });
 
