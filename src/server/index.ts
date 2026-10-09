@@ -1,16 +1,11 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { access, copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { basename, dirname, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, resolve, sep } from 'node:path';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { parseDocument, type Document } from 'yaml';
 
-interface AdminConfig {
-  username: string;
-  password: string;
-  sessionSecret: string;
-  sessionHours: number;
-}
+import { initializeAdmin, loadAdmin, verifyPassword, type AdminConfig } from './admin.js';
+import { adminConfigPath, isSourceRuntime, rootDir, serverConfigPath, stateDir } from './paths.js';
 
 interface ServerConfig {
   host: string;
@@ -51,19 +46,9 @@ class HttpError extends Error {
   }
 }
 
-const moduleDir = dirname(fileURLToPath(import.meta.url));
-const moduleParentDir = resolve(moduleDir, '..');
-const isSourceRuntime = basename(moduleParentDir) === 'src';
-const rootDir = process.env.APP_ROOT
-  ? resolve(process.env.APP_ROOT)
-  : isSourceRuntime
-    ? resolve(moduleParentDir, '..')
-    : moduleParentDir;
 const webDir = resolve(rootDir, isSourceRuntime ? 'dist/web' : 'web');
-const registryPath = resolve(rootDir, 'data/configs.json');
-const adminConfigPath = resolve(rootDir, 'config/admin.json');
-const serverConfigPath = resolve(rootDir, 'config/server.json');
-const templatePath = resolve(rootDir, 'bunnya.yaml');
+const registryPath = resolve(stateDir, 'data/configs.json');
+const templatePath = resolve(stateDir, 'bunnya.yaml');
 const idPattern = /^[a-z0-9][a-z0-9-]{1,47}$/;
 const writeQueues = new Map<string, Promise<void>>();
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
@@ -83,7 +68,7 @@ async function readJson<T>(path: string): Promise<T> {
 }
 
 const serverConfig = await readJson<ServerConfig>(serverConfigPath);
-const port = Number.parseInt(process.env.PORT ?? String(serverConfig.port), 10);
+const port = Number(process.env.PORT ?? serverConfig.port);
 const host = process.env.HOST ?? serverConfig.host;
 const cookieSecure = process.env.COOKIE_SECURE
   ? process.env.COOKIE_SECURE === 'true'
@@ -121,8 +106,8 @@ async function queueWrite<T>(key: string, task: () => Promise<T>): Promise<T> {
 }
 
 function resolveConfigPath(file: string): string {
-  const path = resolve(rootDir, file);
-  if (path !== rootDir && !path.startsWith(`${rootDir}${sep}`)) {
+  const path = resolve(stateDir, file);
+  if (path !== stateDir && !path.startsWith(`${stateDir}${sep}`)) {
     throw new HttpError(400, '配置文件路径无效');
   }
   return path;
@@ -293,7 +278,7 @@ function verifyToken(token: string, config: AdminConfig): boolean {
 }
 
 async function requireAuth(req: Request, _res: Response, next: NextFunction) {
-  const config = await readJson<AdminConfig>(adminConfigPath);
+  const config = await loadAdmin(adminConfigPath);
   const token = parseCookies(req).clash_admin_session ?? '';
   if (!verifyToken(token, config)) throw new HttpError(401, '登录已失效，请重新登录');
   next();
@@ -320,10 +305,10 @@ app.post('/api/auth/login', async (req, res) => {
   if (attempt && attempt.resetAt > now && attempt.count >= 8) {
     throw new HttpError(429, '尝试次数过多，请稍后再试');
   }
-  const config = await readJson<AdminConfig>(adminConfigPath);
+  const config = await loadAdmin(adminConfigPath);
   const username = String(req.body?.username ?? '');
   const password = String(req.body?.password ?? '');
-  if (!safeEqual(username, config.username) || !safeEqual(password, config.password)) {
+  if (!safeEqual(username, config.username) || !verifyPassword(password, config.passwordHash)) {
     const current = attempt && attempt.resetAt > now ? attempt : { count: 0, resetAt: now + 15 * 60 * 1000 };
     current.count += 1;
     loginAttempts.set(ip, current);
@@ -341,7 +326,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.get('/api/auth/session', async (req, res) => {
-  const config = await readJson<AdminConfig>(adminConfigPath);
+  const config = await loadAdmin(adminConfigPath);
   const valid = verifyToken(parseCookies(req).clash_admin_session ?? '', config);
   if (!valid) throw new HttpError(401, '未登录');
   res.json({ username: config.username });
@@ -594,6 +579,10 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
   res.status(status).json({ message: status >= 500 ? '服务器内部错误' : message });
 });
 
+const initialCredentials = await initializeAdmin(adminConfigPath);
+if (initialCredentials) {
+  console.log(`初始管理员账号：${initialCredentials.username}\n初始管理员密码：${initialCredentials.password}\n请立即记录上述凭据。`);
+}
 await ensureBootstrapFiles();
 app.listen(port, host, () => {
   console.log(`Clash config manager: http://${host}:${port}`);

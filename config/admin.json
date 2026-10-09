@@ -1,6 +1,3 @@
 {
-  "username": "admin",
-  "password": "admin123",
-  "sessionSecret": "ef41d9d8e1804bf8b93e8218c699cf430f871237f6d52f1b1386f9a94ee55e68",
   "sessionHours": 12
 }

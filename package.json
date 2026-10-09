@@ -3,6 +3,7 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
+  "engines": { "node": ">=22.12.0" },
   "scripts": {
     "dev": "concurrently -k \"tsx watch src/server/index.ts\" \"vite --host 0.0.0.0\"",
     "build": "npm run typecheck && npm run clean && npm run build:web && npm run build:server && npm run package:runtime",
@@ -12,6 +13,7 @@
     "build:server": "node scripts/build-server.mjs",
     "package:runtime": "node scripts/package-runtime.mjs",
     "typecheck": "vue-tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "test": "node --test tests/*.test.mjs",
     "start": "node dist/server/index.js"
   },
   "dependencies": {

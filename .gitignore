@@ -4,4 +4,6 @@ dist/
 .env
 data/configs/*.tmp
 data/*.tmp
+config/*.tmp
+__pycache__/
 .DS_Store
