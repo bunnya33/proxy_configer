@@ -10,6 +10,12 @@
 curl -fsSL https://raw.githubusercontent.com/bunnya33/proxy_configer/main/bootstrap.sh | sudo bash
 ```
 
+若服务器无法连接 `raw.githubusercontent.com`，可通过 GitHub 官方 API 下载同一个安装入口：
+
+```bash
+curl -fsSL -H 'Accept: application/vnd.github.raw+json' 'https://api.github.com/repos/bunnya33/proxy_configer/contents/bootstrap.sh?ref=main' | sudo bash
+```
+
 也可以克隆后安装，两种方式使用同一个安装脚本：
 
 ```bash
@@ -91,3 +97,5 @@ shellcheck bootstrap.sh install.sh linux/manage.sh
 ```
 
 `tests/runtime.test.mjs` 验证真实 HTTP 登录、明文迁移、会话失效、数据保留、端口校验和占用检测。Linux 安装与菜单的端到端验证见 [tests/linux-e2e.py](tests/linux-e2e.py)，请只在没有现有安装的测试服务器上以 root 执行。
+
+已发布仓库的安装入口可用 `sudo python3 tests/linux-e2e.py --delivery-smoke` 验证；网络无法访问 Raw 域名时附加 `--bootstrap-api`，验证上述官方 API 入口。

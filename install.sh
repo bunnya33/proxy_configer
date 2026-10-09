@@ -50,10 +50,10 @@ if ! command -v node >/dev/null || ! node -e 'const [m,n]=process.versions.node.
     *) die '自动安装 Node.js 只支持 x86_64 和 arm64；请先安装 Node.js 22.12 或更高版本。' ;;
   esac
   echo '正在安装 Node.js 22 LTS（使用官方文件并校验 SHA-256）……'
-  curl --proto '=https' --tlsv1.2 -fsSL --retry 3 https://nodejs.org/dist/latest-v22.x/SHASUMS256.txt -o "$stage/SHASUMS256.txt"
+  curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 15 --max-time 60 --retry 3 https://nodejs.org/dist/latest-v22.x/SHASUMS256.txt -o "$stage/SHASUMS256.txt"
   archive=$(awk -v suffix="-linux-$node_arch.tar.xz" '$2 ~ suffix "$" {print $2}' "$stage/SHASUMS256.txt")
   [[ "$archive" =~ ^node-v22\.[0-9]+\.[0-9]+-linux-(x64|arm64)\.tar\.xz$ ]] || die '无法确定 Node.js 官方下载文件。'
-  curl --proto '=https' --tlsv1.2 -fsSL --retry 3 "https://nodejs.org/dist/latest-v22.x/$archive" -o "$stage/$archive"
+  curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 15 --max-time 180 --retry 3 "https://nodejs.org/dist/latest-v22.x/$archive" -o "$stage/$archive"
   awk -v archive="$archive" '$2 == archive' "$stage/SHASUMS256.txt" > "$stage/checksum.txt"
   (cd "$stage" && sha256sum -c checksum.txt) || die 'Node.js 校验失败。'
   mkdir -p /usr/local/lib/nodejs /usr/local/bin

@@ -31,8 +31,15 @@ def run(args, input=None, timeout=240):
 
 def install(bootstrap=False):
     if bootstrap:
+        if '--bootstrap-api' in sys.argv:
+            command = ('curl -fsSL --connect-timeout 15 --max-time 60 '
+                       '-H "Accept: application/vnd.github.raw+json" '
+                       'https://api.github.com/repos/bunnya33/proxy_configer/contents/bootstrap.sh?ref=main | bash')
+        else:
+            command = ('curl -fsSL --connect-timeout 15 --max-time 60 '
+                       'https://raw.githubusercontent.com/bunnya33/proxy_configer/main/bootstrap.sh | bash')
         return run(['bash', '-o', 'pipefail', '-c',
-                    'curl -fsSL https://raw.githubusercontent.com/bunnya33/proxy_configer/main/bootstrap.sh | bash'])
+                    command])
     return run(['bash', str(SOURCE / 'install.sh')])
 
 

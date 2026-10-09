@@ -8,6 +8,12 @@ curl -fsSL https://raw.githubusercontent.com/bunnya33/proxy_configer/main/bootst
 
 或 `git clone https://github.com/bunnya33/proxy_configer.git`，进入项目后执行 `sudo bash install.sh`。
 
+若 Raw 域名无法连接，可改用 GitHub 官方 API 下载同一个脚本：
+
+```bash
+curl -fsSL -H 'Accept: application/vnd.github.raw+json' 'https://api.github.com/repos/bunnya33/proxy_configer/contents/bootstrap.sh?ref=main' | sudo bash
+```
+
 安装脚本支持 Debian/Ubuntu、Fedora/RHEL 及 Arch 的依赖安装；其他 systemd 发行版需预装脚本列出的系统依赖。系统缺少合适的 Node.js 时，x86_64/arm64 会下载并校验官方 Node.js 22 LTS。已有 Node.js 需至少为 22.12，且位于服务可访问的系统目录（如 `/usr/local/bin/node`）；不要使用家目录中的 nvm 运行时。自动安装需要联网下载源码、Node.js 和 npm 依赖。
 
 安装后服务为 `proxy-configer.service`，由专用系统用户运行。默认后台为 `http://服务器IP:57356/admin`，首次安装输出随机账号和密码。请在服务器防火墙或云安全组中放行实际监听端口。
